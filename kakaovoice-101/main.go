@@ -135,6 +135,8 @@ func request(w http.ResponseWriter, r *http.Request) {
 
 		// Get response
 		content, _ := ioutil.ReadAll(res.Body)
+
+		ioutil.WriteFile("a.mp3", content, 0755)
 		//spew.Dump(content)
 		//response = strings.TrimSpace(string(content))
 		//		response = html.EscapeString(response)
