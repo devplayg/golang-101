@@ -37,5 +37,4 @@ func main() {
 		}
 		fmt.Fprintf(conn, text+"\n")
 	}
-
 }
