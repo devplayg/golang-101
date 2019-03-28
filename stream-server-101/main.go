@@ -25,10 +25,10 @@ type Message struct {
 func main() {
 	var (
 		cmdFlags   = flag.NewFlagSet("", flag.ExitOnError)
-		recvHost   = cmdFlags.String("rhost", "127.0.0.1", "Receieve host")
-		recvPort   = cmdFlags.String("rport", "8000", "receieve port")
-		streamHost = cmdFlags.String("shost", "127.0.0.1", "Stream host")
-		streamPort = cmdFlags.String("spport", "8080", "Stream port")
+		recvHost   = cmdFlags.String("recvhost", "127.0.0.1", "Receieve host")
+		recvPort   = cmdFlags.String("recvport", "8000", "receieve port")
+		streamHost = cmdFlags.String("streamhost", "127.0.0.1", "Stream host")
+		streamPort = cmdFlags.String("streampport", "8080", "Stream port")
 	)
 	cmdFlags.Usage = func() {
 		cmdFlags.PrintDefaults()
