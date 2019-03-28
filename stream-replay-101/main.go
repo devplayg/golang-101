@@ -33,8 +33,8 @@ func main() {
 	// Set flags
 	var (
 		cmdFlags = flag.NewFlagSet("", flag.ExitOnError)
-		host     = cmdFlags.String("h", "127.0.0.1", "Host")
-		port     = cmdFlags.String("p", "8000", "Port")
+		host     = cmdFlags.String("host", "127.0.0.1", "Host")
+		port     = cmdFlags.String("port", "8000", "Port")
 		cameraID = cmdFlags.Int("c", 0, "Camera ID")
 	)
 	cmdFlags.Usage = func() {
@@ -94,14 +94,14 @@ func send(conn net.Conn, webcam *gocv.VideoCapture) {
 		// Encode
 		err := encoder.Encode(m)
 		if err != nil {
-			log.Println("failed to encode", err)
+			log.Println("failed to encode;", err)
 			continue
 		}
 
 		// Send
 		n, err := conn.Write(buf.Bytes())
 		if err != nil {
-			log.Println("failed to send data", err)
+			log.Println("failed to send data;", err)
 			return
 		}
 

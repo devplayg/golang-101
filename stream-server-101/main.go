@@ -49,7 +49,7 @@ func main() {
 	go func() {
 		err := http.ListenAndServe(*streamHost+":"+*streamPort, nil)
 		if err != nil {
-			log.Println("failed to open stream port", err)
+			log.Println("failed to open stream port;", err)
 		}
 	}()
 	//log.Println("===============================")
@@ -59,7 +59,7 @@ func main() {
 	for {
 		conn, err := ln.Accept()
 		if nil != err {
-			log.Println("failed to accept", err)
+			log.Println("failed to accept;", err)
 			continue
 		}
 		go handleConnection(conn, stream)
@@ -78,7 +78,7 @@ func handleConnection(conn net.Conn, stream *mjpeg.Stream) {
 				log.Printf("closed from client; %v", conn.RemoteAddr().String())
 				return
 			}
-			log.Println("failed to receive data", err)
+			log.Println("failed to receive data;", err)
 			return
 		}
 
@@ -87,18 +87,18 @@ func handleConnection(conn net.Conn, stream *mjpeg.Stream) {
 		var m Message
 		err = decoder.Decode(&m)
 		if err != nil {
-			log.Println("failed to decode", err)
+			log.Println("failed to decode;", err)
 			continue
 		}
+		log.Printf("[%3d] len=%-4d, type=%d", m.Seq, n, m.MatType)
 
 		img, err := gocv.NewMatFromBytes(m.Rows, m.Cols, m.MatType, m.Data)
 		if err != nil {
-			log.Println("failed to back to mat", err)
+			log.Println("failed to back to mat;", err)
 			continue
 		}
 		buf, _ := gocv.IMEncode(".jpg", img)
 		stream.UpdateJPEG(buf)
 
-		log.Printf("[%3d] len=%-4d, type=%d", m.Seq, n, m.MatType)
 	}
 }
