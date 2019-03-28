@@ -52,7 +52,6 @@ func main() {
 			log.Println("failed to open stream port;", err)
 		}
 	}()
-	//log.Println("===============================")
 	log.Printf("streamer started listening on %s:%s", *streamHost, *streamPort)
 
 	// Accept connections
