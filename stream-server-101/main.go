@@ -72,6 +72,7 @@ func handleConnection(conn net.Conn, stream *mjpeg.Stream) {
 	buf := make([]byte, 1024*1000)
 
 	for {
+		// Read data
 		n, err := conn.Read(buf)
 		if err != nil {
 			if err == io.EOF {
@@ -82,8 +83,8 @@ func handleConnection(conn net.Conn, stream *mjpeg.Stream) {
 			return
 		}
 
-		data := buf[:n]
-		decoder := gob.NewDecoder(bytes.NewReader(data))
+		// Decode
+		decoder := gob.NewDecoder(bytes.NewReader(buf[:n]))
 		var m Message
 		err = decoder.Decode(&m)
 		if err != nil {
