@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"flag"
 	"github.com/hybridgroup/mjpeg"
-	"github.com/pkg/errors"
 	"gocv.io/x/gocv"
 	"io"
 	"log"
@@ -26,7 +25,7 @@ type Message struct {
 func main() {
 	var (
 		cmdFlags   = flag.NewFlagSet("", flag.ExitOnError)
-		recvHost   = cmdFlags.String("h", "127.0.0.1", "Receieve host")
+		recvHost   = cmdFlags.String("rhost", "127.0.0.1", "Receieve host")
 		recvPort   = cmdFlags.String("rport", "8000", "receieve port")
 		streamHost = cmdFlags.String("shost", "127.0.0.1", "Stream host")
 		streamPort = cmdFlags.String("spport", "8080", "Stream port")
@@ -50,7 +49,7 @@ func main() {
 	go func() {
 		err := http.ListenAndServe(*streamHost+":"+*streamPort, nil)
 		if err != nil {
-			log.Println(errors.Wrap(err, "failed to open stream port"))
+			log.Println("failed to open stream port", err)
 		}
 	}()
 	//log.Println("===============================")
@@ -60,7 +59,7 @@ func main() {
 	for {
 		conn, err := ln.Accept()
 		if nil != err {
-			log.Println(errors.Wrap(err, "failed to accept"))
+			log.Println("failed to accept", err)
 			continue
 		}
 		go handleConnection(conn, stream)
@@ -76,10 +75,10 @@ func handleConnection(conn net.Conn, stream *mjpeg.Stream) {
 		n, err := conn.Read(buf)
 		if err != nil {
 			if err == io.EOF {
-				log.Println(errors.Wrapf(err, "closed from client; %v", conn.RemoteAddr().String()))
+				log.Printf("closed from client; %v", conn.RemoteAddr().String())
 				return
 			}
-			log.Println(errors.Wrapf(err, "failed to receive data; err: %v", err))
+			log.Println("failed to receive data", err)
 			return
 		}
 
@@ -88,13 +87,13 @@ func handleConnection(conn net.Conn, stream *mjpeg.Stream) {
 		var m Message
 		err = decoder.Decode(&m)
 		if err != nil {
-			log.Println(errors.Wrap(err, "failed to decode"))
+			log.Println("failed to decode", err)
 			continue
 		}
 
-		img, err := gocv.NewMatFromBytes(m.Rows,m.Cols,m.MatType,m.Data)
+		img, err := gocv.NewMatFromBytes(m.Rows, m.Cols, m.MatType, m.Data)
 		if err != nil {
-			log.Println(errors.Wrap(err, "failed to back to mat"))
+			log.Println("failed to back to mat", err)
 			continue
 		}
 		buf, _ := gocv.IMEncode(".jpg", img)

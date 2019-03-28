@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"flag"
 	"fmt"
-	"github.com/pkg/errors"
 	"gocv.io/x/gocv"
 	"log"
 	"net"
@@ -46,7 +45,7 @@ func main() {
 	// Connect to server
 	conn, err := net.Dial("tcp", *host+":"+*port)
 	if err != nil {
-		log.Println(errors.Wrap(err, "failed to connect to server"))
+		log.Println("failed to connect to server", err)
 		return
 	}
 	defer conn.Close()
@@ -54,7 +53,7 @@ func main() {
 	// Open camera
 	webcam, err := gocv.OpenVideoCapture(*cameraID)
 	if err != nil {
-		log.Println(errors.Wrapf(err, "failed to open camera %d", *cameraID))
+		log.Printf("failed to open camera [%d]", *cameraID)
 		return
 	}
 	defer webcam.Close()
@@ -95,14 +94,14 @@ func send(conn net.Conn, webcam *gocv.VideoCapture) {
 		// Encode
 		err := encoder.Encode(m)
 		if err != nil {
-			log.Println(errors.Wrap(err, "failed to encode"))
+			log.Println("failed to encode", err)
 			continue
 		}
 
 		// Send
 		n, err := conn.Write(buf.Bytes())
 		if err != nil {
-			log.Println(errors.Wrap(err, "failed to send data"))
+			log.Println("failed to send data", err)
 			return
 		}
 
