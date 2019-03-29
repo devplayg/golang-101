@@ -25,7 +25,6 @@ type Message struct {
 
 func init() {
 	log.SetFlags(log.Lshortfile)
-	//rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
