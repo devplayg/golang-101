@@ -10,7 +10,7 @@ type Writer int
 
 func (*Writer) Write(p []byte) (n int, err error) {
 	fmt.Printf("Write: %q\n", p)
-	return 0, errors.New("boom!")
+	return 0, errors.New("boo123m!")
 }
 func main() {
 	w := new(Writer)

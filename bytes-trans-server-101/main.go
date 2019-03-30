@@ -1,13 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"encoding/gob"
 	"flag"
-	"github.com/pkg/errors"
+	"github.com/hybridgroup/mjpeg"
+	"gocv.io/x/gocv"
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 )
 
@@ -15,26 +16,29 @@ type Message struct {
 	Seq       int64
 	Timestamp int64
 	Data      []byte
+	Rows      int
+	Cols      int
+	MatType   gocv.MatType
 }
 
 func main() {
 	var (
 		cmdFlags = flag.NewFlagSet("", flag.ExitOnError)
-		host     = cmdFlags.String("h", "127.0.0.1", "Host")
-		port     = cmdFlags.String("p", "8000", "Port")
+		recvHost = cmdFlags.String("recvhost", "127.0.0.1", "Receieve host")
+		recvPort = cmdFlags.String("recvport", "8000", "receieve port")
 	)
 	cmdFlags.Usage = func() {
 		cmdFlags.PrintDefaults()
 	}
 	cmdFlags.Parse(os.Args[1:])
 
-	// Start server
-	ln, err := net.Listen("tcp", *host+":"+*port)
+	// Start receiver
+	ln, err := net.Listen("tcp", *recvHost+":"+*recvPort)
 	if nil != err {
 		panic(err)
 	}
 	defer ln.Close()
-	log.Printf("server started listening on %s:%s", *host, *port)
+	log.Printf("receiver started listening on %s:%s", *recvHost, *recvPort)
 
 	// Accept connections
 	for {
@@ -49,28 +53,24 @@ func main() {
 
 func handleConnection(conn net.Conn) {
 	log.Printf("new connection %v", conn.RemoteAddr().String())
-	buf := make([]byte, 100)
+	//buf := make([]byte, 4096)
 
 	for {
-		n, err := conn.Read(buf)
+		// Read data
+
+		m := &Message{}
+		decoder := gob.NewDecoder(conn)
+		err := decoder.Decode(m)
 		if err != nil {
 			if err == io.EOF {
-				log.Println("closed from client", conn.RemoteAddr().String())
-				continue
+				log.Printf("closed from client; %v", conn.RemoteAddr().String())
+				return
 			}
-			log.Println("fail to receive data;", err)
-			return
-		}
-
-		data := buf[:n]
-		decoder := gob.NewDecoder(bytes.NewReader(data))
-		var m Message
-		err = decoder.Decode(&m)
-		if err != nil {
-			log.Println("failed to decode", err)
+			log.Println("failed to decode;", err)
 			continue
 		}
 
-		log.Printf("[%3d] len=%-4d data=%-6s, %v", m.Seq, n, m.Data, m.Data)
+		log.Printf("[%d]", m.Seq)
+
 	}
 }
