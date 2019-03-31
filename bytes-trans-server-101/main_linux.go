@@ -83,8 +83,7 @@ func main() {
 
 func handleConnection(conn net.Conn) {
 	log.Printf("new connection %v", conn.RemoteAddr().String())
-	//buf := make([]byte, 4096)
-	sizeBuf := make([]byte, 10)
+	sizeBuf := make([]byte, 8)
 
 	buf := make([]byte, BufferSize)
 
@@ -101,7 +100,9 @@ func handleConnection(conn net.Conn) {
 		}
 		if 0 < n {
 			// Read data
+			spew.Dump(sizeBuf[:n])
 			dataSize := int64(binary.BigEndian.Uint64(sizeBuf[:n]))
+
 			var read int64
 			data := make([]byte, 0)
 			for read < dataSize {
@@ -126,6 +127,7 @@ func handleConnection(conn net.Conn) {
 				}
 				//log.Printf("total=%d, read=%d, merged=%d, \n", dataSize, n, read)
 			}
+			//spew.Dump(data)
 			m, err := Deserialize(data)
 			merged := m.Merge()
 			hash := sha256.Sum256(merged)
@@ -142,13 +144,11 @@ func handleConnection(conn net.Conn) {
 				spew.Dump(m)
 			}
 
-			if m.Seq%10000 == 0 {
+			if m.Seq%100 == 0 {
 				log.Printf("==> seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, true)
 			}
 
 		}
-
-		// Read data
 	}
 }
 

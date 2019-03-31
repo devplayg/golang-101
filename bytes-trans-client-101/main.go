@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	dataSize = 80
+	dataSize = 1024*1024
 )
 
 type Message struct {
@@ -94,13 +94,16 @@ func send(conn net.Conn) {
 			log.Println("failed to serialize;", err)
 			continue
 		}
+		//spew.Dump(data)
 
 		// Send data size
 		dataSize := int64(len(data))
+		//log.Println(IntToHex(dataSize) )
 		_, err = conn.Write(IntToHex(dataSize))
 		if err != nil {
 			log.Println("failed to send data;", err)
 		}
+		//spew.Dump(dataSize)
 
 		// Send data
 		_, err = conn.Write(data)
@@ -108,7 +111,7 @@ func send(conn net.Conn) {
 			log.Println("failed to send;", err)
 		}
 
-		if seq%10000 == 0 {
+		if seq%100 == 0 {
 			log.Printf("[%3d] len=%-4d", m.Seq, dataSize)
 		}
 
