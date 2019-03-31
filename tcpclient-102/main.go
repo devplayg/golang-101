@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/gob"
 	"flag"
+	"github.com/pkg/errors"
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"time"
-	"math/rand"
-	"github.com/pkg/errors"
 )
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz")
@@ -55,17 +55,17 @@ func main() {
 		m := Message{
 			Seq:       seq,
 			Timestamp: time.Now().Unix(),
-			Data:      []byte(getRandString(3+rand.Intn(13))), // Random data
+			Data:      []byte(getRandString(3 + rand.Intn(13))), // Random data
 		}
 
 		if err := encoder.Encode(m); err == nil {
 			if n, err := conn.Write(buf.Bytes()); err == nil {
 				log.Printf("[%3d] len=%-4d data=%-6s, %v", m.Seq, n, m.Data, m.Data)
 			} else {
-				log.Println(errors.Wrap(err, "failed to write data"))
+				log.Println("failed to write data;", err)
 			}
 		} else {
-			log.Println(errors.Wrap(err, "failed to decode"))
+			log.Println("failed to decode", err)
 		}
 
 		time.Sleep(1000 * time.Millisecond)

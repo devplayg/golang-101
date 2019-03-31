@@ -1,24 +1,54 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/gob"
 	"flag"
-	"github.com/hybridgroup/mjpeg"
-	"gocv.io/x/gocv"
+	"github.com/davecgh/go-spew/spew"
 	"io"
 	"log"
 	"net"
-	"net/http"
 	"os"
+)
+
+const (
+	BufferSize = 1024
 )
 
 type Message struct {
 	Seq       int64
 	Timestamp int64
 	Data      []byte
-	Rows      int
-	Cols      int
-	MatType   gocv.MatType
+	Hash      []byte
+}
+
+func (m *Message) Merge() []byte {
+	seq := IntToHex(m.Seq)
+	ts := IntToHex(m.Timestamp)
+	merged := bytes.Join(
+		[][]byte{
+			seq,
+			ts,
+			m.Data,
+		},
+		[]byte(""),
+	)
+
+	return merged
+}
+
+func Deserialize(b []byte) (*Message, error) {
+	var m Message
+
+	decoder := gob.NewDecoder(bytes.NewReader(b))
+	err := decoder.Decode(&m)
+	if err != nil {
+		return nil, err
+	}
+
+	return &m, nil
 }
 
 func main() {
@@ -54,23 +84,81 @@ func main() {
 func handleConnection(conn net.Conn) {
 	log.Printf("new connection %v", conn.RemoteAddr().String())
 	//buf := make([]byte, 4096)
+	sizeBuf := make([]byte, 10)
+
+	buf := make([]byte, BufferSize)
 
 	for {
-		// Read data
-
-		m := &Message{}
-		decoder := gob.NewDecoder(conn)
-		err := decoder.Decode(m)
-		if err != nil {
-			if err == io.EOF {
+		// Read data size
+		n, err := conn.Read(sizeBuf)
+		if nil != err {
+			if io.EOF == err {
 				log.Printf("closed from client; %v", conn.RemoteAddr().String())
 				return
 			}
-			log.Println("failed to decode;", err)
-			continue
+			log.Printf("fail to receive data; err: %v", err)
+			return
+		}
+		if 0 < n {
+			// Read data
+			dataSize := int64(binary.BigEndian.Uint64(sizeBuf[:n]))
+			var read int64
+			data := make([]byte, 0)
+			for read < dataSize {
+				n, err := conn.Read(buf)
+				if err != nil {
+					if io.EOF == err {
+						log.Printf("closed from client; %v", conn.RemoteAddr().String())
+						return
+					}
+					log.Println("failed to read;", err)
+					return
+				}
+				if (dataSize - read) < BufferSize {
+					last := dataSize - read
+					read += last
+					data = append(data, buf[:last]...)
+
+				} else {
+					read += int64(n)
+					data = append(data, buf[:n]...)
+
+				}
+				//log.Printf("total=%d, read=%d, merged=%d, \n", dataSize, n, read)
+			}
+			m, err := Deserialize(data)
+			merged := m.Merge()
+			hash := sha256.Sum256(merged)
+			//m.Hash = hash[:]
+			if err != nil {
+				log.Println("failed to deserialize;", err)
+				//spew.Dump(data)
+				continue
+			}
+			if bytes.Equal(m.Hash, hash[:]) {
+				//log.Printf("==> seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, true)
+			} else {
+				log.Printf("==> seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, false)
+				spew.Dump(m)
+			}
+
+			if m.Seq%10000 == 0 {
+				log.Printf("==> seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, true)
+			}
+
 		}
 
-		log.Printf("[%d]", m.Seq)
-
+		// Read data
 	}
+}
+
+func IntToHex(num int64) []byte {
+	buff := new(bytes.Buffer)
+	err := binary.Write(buff, binary.BigEndian, num)
+	if err != nil {
+		log.Println("failed to convert int to hex;", num)
+		return nil
+	}
+
+	return buff.Bytes()
 }

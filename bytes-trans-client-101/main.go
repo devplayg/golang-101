@@ -1,11 +1,15 @@
+// blog: Marcio
+
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/gob"
 	"flag"
 	"fmt"
-	"gocv.io/x/gocv"
 	"log"
 	"net"
 	"os"
@@ -14,18 +18,36 @@ import (
 	"time"
 )
 
+const (
+	dataSize = 80
+)
+
 type Message struct {
 	Seq       int64
 	Timestamp int64
 	Data      []byte
+	Hash      []byte
 }
 
-const (
-	dataSize = 8
-)
+func (m *Message) Merge() []byte {
+	return bytes.Join(
+		[][]byte{
+			IntToHex(m.Seq),
+			IntToHex(m.Timestamp),
+			m.Data,
+		},
+		[]byte(""),
+	)
+}
 
-func init() {
-	log.SetFlags(log.Lshortfile)
+func (m *Message) Serialize() ([]byte, error) {
+	var buf bytes.Buffer
+	encoder := gob.NewEncoder(&buf)
+	err := encoder.Encode(m)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func main() {
@@ -55,11 +77,7 @@ func main() {
 }
 
 func send(conn net.Conn) {
-	img := gocv.NewMat()
-	defer img.Close()
-
 	var seq int64 = 1
-	//var buf bytes.Buffer
 	for {
 		// Create message
 		m := Message{
@@ -67,34 +85,35 @@ func send(conn net.Conn) {
 			Timestamp: time.Now().Unix(),
 			Data:      getData(dataSize),
 		}
-		encoder := gob.NewEncoder(conn)
-		err := encoder.Encode(m)
+		merged := m.Merge()
+		hash := sha256.Sum256(merged)
+		m.Hash = hash[:]
+
+		data, err := m.Serialize()
 		if err != nil {
-			log.Println("failed to send;", err)
+			log.Println("failed to serialize;", err)
 			continue
 		}
-		//buf.Reset()
-		//encoder := gob.NewEncoder(&buf)
 
-		//
-		//// Encode
-		//err := encoder.Encode(m)
-		//if err != nil {
-		//	log.Println("failed to encode;", err)
-		//	continue
-		//}
-		//
-		//// Send
-		//n, err := conn.Write(buf.Bytes())
-		//if err != nil {
-		//	log.Println("failed to send data;", err)
-		//	return
-		//}
-		//
-		//log.Printf("[%3d] len=%-4d", m.Seq, n)
-		log.Printf("[%3d]", m.Seq)
+		// Send data size
+		dataSize := int64(len(data))
+		_, err = conn.Write(IntToHex(dataSize))
+		if err != nil {
+			log.Println("failed to send data;", err)
+		}
+
+		// Send data
+		_, err = conn.Write(data)
+		if err != nil {
+			log.Println("failed to send;", err)
+		}
+
+		if seq%10000 == 0 {
+			log.Printf("[%3d] len=%-4d", m.Seq, dataSize)
+		}
+
 		seq++
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -111,4 +130,14 @@ func waitForSignals() {
 	case <-signalCh:
 		fmt.Print("Signal received, shutting down...")
 	}
+}
+
+func IntToHex(num int64) []byte {
+	buff := new(bytes.Buffer)
+	err := binary.Write(buff, binary.BigEndian, num)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return buff.Bytes()
 }
