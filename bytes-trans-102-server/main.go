@@ -10,10 +10,15 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net"
 	"os"
+	"time"
 )
 
 const (
 	BufferSize = 1024
+)
+
+var (
+	Debug bool
 )
 
 // Message object
@@ -73,6 +78,7 @@ func main() {
 	if *debug {
 		log.SetLevel(log.DebugLevel)
 		log.Debug("start debugging")
+		Debug = *debug
 	}
 
 	// Start receiver
@@ -101,8 +107,9 @@ func main() {
 		select {
 		case conn:= <-closedConn :
 			err := conn.Close()
+			time.Sleep(1*time.Second)
 			if err != nil {
-				log.Errorf("Closing connection: %s", err)
+				log.Error("failed to close connection", err)
 			}
 		}
 	}
@@ -112,11 +119,12 @@ func handleConnection(conn net.Conn, closeConn chan<- net.Conn) {
 	log.Infof("new connection %v", conn.RemoteAddr().String())
 	sizeBuf := make([]byte, 8)
 
-	buf := make([]byte, BufferSize)
 
 	for {
+		buf := make([]byte, BufferSize)
 		// Read data size
 		n, err := conn.Read(sizeBuf)
+		//log.Debug("read")
 		if nil != err {
 			if io.EOF == err {
 				log.Errorf("closed from client; %v", conn.RemoteAddr().String())
@@ -129,6 +137,7 @@ func handleConnection(conn net.Conn, closeConn chan<- net.Conn) {
 		}
 		if 0 < n {
 			dataSize := int64(binary.BigEndian.Uint64(sizeBuf[:n]))
+			log.Debugf("read=%d, data=%v, size=%d", n, sizeBuf[:n], dataSize)
 
 			var read int64
 			data := make([]byte, 0)
@@ -154,22 +163,30 @@ func handleConnection(conn net.Conn, closeConn chan<- net.Conn) {
 					data = append(data, buf[:n]...)
 
 				}
-				log.Debugf("total=%d, read=%d, merged=%d, \n", dataSize, n, read)
+				//log.Debugf("total=%d, read=%d, merged=%d, \n", dataSize, n, read)
 			}
 			m, err := Deserialize(data)
 			if err != nil {
-				log.Error("failed to deserialize;", err)
+				//log.Error("failed to deserialize;", err)
+				log.WithFields(log.Fields{
+					"dataSize": dataSize,
+					"realSize": len(data),
+				}).Debug("failed to deserialize;", err)
 				continue
 			}
 			if m.Verify() {
-				log.Debugf("==> seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, true)
+				log.Debugf("seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, true)
 			} else {
-				log.Infof("==> seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, false)
+				log.Infof("seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, false)
 			}
 
-			if m.Seq%100 == 0 {
-				log.Infof("==> seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, true)
-			}
+			//if m.Seq%100 == 0 {
+				//log.WithFields(log.Fields{
+				//	"sizeData": sizeBuf[:n],
+				//	"size":     dataSize,
+				//}).Debug()
+				//log.Debugf("seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, true)
+			//}
 
 		}
 	}
