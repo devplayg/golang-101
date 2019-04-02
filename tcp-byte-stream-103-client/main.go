@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	dataSize = 1024*1024
+	Bu = 1024*1024
 )
 
 var (
