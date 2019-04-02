@@ -1,34 +1,27 @@
 package main
 
-import "time"
+import (
+	"bytes"
+	"io"
+	"os"
+)
 
 func main() {
+	proverbs := new(bytes.Buffer)
+	proverbs.WriteString("Channels orchestrate mutexes serialize\n")
+	proverbs.WriteString("Cgo is not Go\n")
+	proverbs.WriteString("Errors are values\n")
+	proverbs.WriteString("Don't panic\n")
 
-	//var quit chan bool
-	//
-	//quit := make(bool, chan)
+	piper, pipew := io.Pipe()
 
-	var quit chan bool
-	quit = make(chan bool)
-
+	// write in writer end of pipe
 	go func() {
-		time.Sleep(2 * time.Second)
-		//quit<- true
-		close(quit)
-
+		defer pipew.Close()
+		io.Copy(pipew, proverbs)
 	}()
 
-	for {
-		select {
-		case <-quit:
-			println("quit")
-			return
-		default:
-			//
-		}
-	}
-
-
-
-
+	// read from reader end of pipe.
+	io.Copy(os.Stdout, piper)
+	piper.Close()
 }
