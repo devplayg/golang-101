@@ -1,22 +1,24 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/gob"
 	"flag"
 	"github.com/devplayg/golang-101/tcp-byte-stream-104/obj"
 	log "github.com/sirupsen/logrus"
+	"io"
 	"net"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
-	"bytes"
-	"io"
 )
+
 const (
-	PayloadSize = 4
+	PayloadSize = 1024 * 1024
 )
 
 var (
@@ -24,8 +26,12 @@ var (
 	cmdFlags = flag.NewFlagSet("", flag.ExitOnError)
 
 	// Etc
-	quit  = make(chan bool)
-	Debug = false
+	senderQuit   = make(chan bool)
+	receiverQuit = make(chan bool)
+	Debug        = false
+
+	// Signal
+	response = make(chan obj.Response)
 )
 
 func init() {
@@ -50,7 +56,7 @@ func main() {
 	cmdFlags.Parse(os.Args[1:])
 	if *debug {
 		log.SetLevel(log.DebugLevel)
-		log.Debug("start debugging")
+		log.Debug("started debugging")
 		Debug = *debug
 	}
 
@@ -63,49 +69,163 @@ func main() {
 		if conn != nil {
 			conn.Close()
 		}
-		log.Info("Closed connection")
+		log.Info("closed connection")
 	}()
 
-	go run(conn)
-
-	// Start server
-	//go run(*host, *port)
+	go startReceiver(conn)
+	go startSender(conn)
 
 	// Wait for stop signal
 	waitForSignals()
 }
 
-func run(conn net.Conn) error {
+func startSender(conn net.Conn) error {
+	defer func() {
+		log.Debug("closing connection")
+		close(senderQuit)
+		conn.Close()
+	}()
 	var seq int64 = 1
+	encoder := gob.NewEncoder(conn)
 	for {
 		// Create message
-		m := obj.Message{
+		msg := obj.Message{
 			Seq:       seq,
 			Timestamp: time.Now().Unix(),
 			Data:      getData(PayloadSize),
 		}
-		merged := m.Merge()
+		merged := msg.Merge()
 		hash := sha256.Sum256(merged)
-		m.Hash = hash[:]
+		msg.Hash = hash[:]
 
 		// Serialize message
-		data, err := m.Serialize()
+		data, err := msg.Serialize()
 		if err != nil {
 			log.Error("failed to serialize;", err)
 			return err
 		}
+
+		// Create message header
+		msgHeader := obj.MessageHeader{
+			PayloadSize: uint32(len(data)),
+		}
+
+		// Send message header
+		err = encoder.Encode(&msgHeader)
+		if err != nil {
+			select {
+			case <-receiverQuit:
+				return nil
+			default:
+			}
+			log.Debug("failed to send message header")
+			return err
+		}
+
+		// Waiting for response to send payload
+		log.Debug("waiting for signal to transmit payload")
+		result := <-response
+		log.Debugf("permitted from server to send payload; code=%d", result.Code)
+
+		//header, err := utils.Serialize(msgHeader)
+		//if err != nil {
+		//	log.Error("failed to serialize;", err)
+		//	continue
+		//}
+		//_, err = conn.Write(header)
+		//if err != nil {
+		//	log.Error(err)
+		//	continue
+		//}
+		//<-response
 
 		// Send message
 		reader := bytes.NewReader(data)
 		n, err := io.Copy(conn, reader)
 		if err != nil {
 			log.Error("failed to send data;", err)
+			continue
+		}
+		log.Debugf("sent payload, %d bytes", n)
+		//spew.Dump(data)
+
+		result = <-response
+		log.Debugf("sent data successfully; code=%d", result.Code)
+
+		//time.Sleep(5 * time.Second)
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	return nil
+}
+
+func startReceiver(conn net.Conn) error {
+	defer func() {
+		log.Debug("closing connection")
+		close(receiverQuit)
+		//conn.Close()
+	}()
+
+	resp := obj.Response{}
+	decoder := gob.NewDecoder(conn)
+	for {
+		log.Debug("receiver is listening")
+		err := decoder.Decode(&resp)
+		if err != nil {
+			select {
+			case <-receiverQuit:
+				return nil
+			default:
+			}
+			log.Error("failed to decode response;", err)
+			return err
+			//select {
+			//case <-quit:
+			//	return nil
+			//default:
+			//}
+			//
 			//continue
 		}
-		log.Debugf("written=%d", n)
 
-		time.Sleep(5*time.Second)
+		log.Debugf("got message. respcode is %d", resp.Code)
+		response <- resp
 	}
+
+	//m := &Message{}
+
+	//reponse := make([]byte, 1024)
+	//reader := bufio.NewReader(conn)
+	//
+	//reader.Read(response)
+
+	//reader.
+	//var err error
+	//for err != nil {
+	//	reader.ReadByte()
+	//}
+
+	//var buf bytes.Buffer
+
+	//bytes.bu
+	//response
+	//bytes.NewReader()
+	//conn.re
+	//var buf bytes.Buffer
+	//bufio.new
+	//reader  := bufio.NewReader(conn)
+	//buf := make([]byte, 1024)
+	//var b bytes.Buffer
+	//bytes.NewReader()
+	//for {
+	//reader.Reset()
+	//reader.re
+	//n, err := conn.Read(buf)
+	//if err != nil {
+	//	log.Error("failed to read response;", err)
+	//	return err
+	//}
+	//}
 
 	return nil
 }
@@ -115,7 +235,7 @@ func waitForSignals() {
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
 	select {
 	case <-signalCh:
-		log.Info("Signal received, shutting down...")
+		log.Info("signal received, shutting down...")
 	}
 }
 

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
 	"flag"
+	"github.com/devplayg/golang-101/tcp-byte-stream-104/obj"
 	log "github.com/sirupsen/logrus"
 	"net"
 	"os"
@@ -9,11 +12,8 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
-	"time"
-	"bytes"
 	"io"
-	"encoding/gob"
-	"github.com/devplayg/golang-101/tcp-byte-stream-104/obj"
+	"time"
 )
 
 const (
@@ -49,7 +49,7 @@ func main() {
 	var (
 		host  = cmdFlags.String("host", "127.0.0.1", "Host")
 		port  = cmdFlags.Int("port", 8000, "Port")
-		debug = cmdFlags.Bool("debug", true, "debug")
+		debug = cmdFlags.Bool("debug", false, "debug")
 	)
 	cmdFlags.Usage = func() {
 		cmdFlags.PrintDefaults()
@@ -86,7 +86,6 @@ func run() error {
 	defer func() {
 		log.Info("stopping server")
 		close(quit)
-		//listener.Close()
 	}()
 
 	// Start listening
@@ -100,7 +99,7 @@ func run() error {
 			default:
 			}
 		}
-		log.Debugf("new connection detected #%d", connID)
+		log.Debugf("connection #%d is connected", connID)
 
 		connMap.Store(connID, conn)
 		go handleConnection(conn, connID)
@@ -111,41 +110,117 @@ func run() error {
 }
 
 func handleConnection(conn net.Conn, connID int64) error {
+	var success_count int64
+	t := time.Now()
+
 	defer func() {
-		log.Debugf("Closing connection #", connID)
+		log.Debugf("closing connection #%d", connID)
+		log.Infof("time: %3.1f, count: %d, average=%3.1f", time.Since(t).Seconds(), success_count, float64(success_count) / time.Since(t).Seconds())
 		conn.Close()
 		connMap.Delete(connID)
 	}()
+	log.Debugf("connection #%d is ready", connID)
 
-	log.Debugf("Conn #%d is ready", connID)
+	//buf := make([]byte, 100)
+	//data := make([]byte, 0)
+	encoder := gob.NewEncoder(conn)
+	decoder := gob.NewDecoder(conn)
+	var err error
 	for {
-		var buf bytes.Buffer
-		writer := io.Writer(&buf)
-		// accept file from client & write to new file
-		msgLen, err := io.Copy(writer, conn)
+		// Receive message header
+		msgHeader := obj.MessageHeader{}
+		log.Debug("ready to receive message header")
+		err = decoder.Decode(&msgHeader)
 		if err != nil {
-			log.Error("failed to received;", err)
-			return err
+			if err == io.EOF {
+				log.Debug("disconnected from connection;", conn.RemoteAddr().String())
+				return nil
+			}
+			log.Error("failed to receive header and decode;", err)
+			continue
 		}
-		log.Debugf("meglen=%d", msgLen)
+		log.Debugf("received message header. payload is %d bytes", msgHeader.PayloadSize)
 
-		//m, err := Deserialize(buf.Bytes())
-		//if err != nil {
-		//	log.Error("failed to deserialize;", err)
-			//			log.WithFields(log.Fields{
-			//				"dataSize": dataSize,
-			//				"realSize": len(data),
-			//			}).Debug("failed to deserialize;", err)
-			//			continue
-			//return
-		//}
-		//if m.Verify() {
-		//	log.Debugf("seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, true)
-		//} else {
-		//	log.Infof("seq=%d, timestamp=%d, equal=%v", m.Seq, m.Timestamp, false)
-		//}
-		time.Sleep(5 * time.Second)
+		// Response
+		err = encoder.Encode(&obj.Response{Code:1})
+		if err != nil {
+			log.Error("failed to response;", err)
+			continue
+		}
+		//log.Debug("sent response ")
+
+		// Receive payload
+		var received uint32
+		buf := make([]byte, 100)
+		data := make([]byte, 0)
+		for received < msgHeader.PayloadSize {
+			n, err := conn.Read(buf)
+			if err != nil {
+				log.Error("failed to receive payload;", err)
+				break
+			}
+			received += uint32(n)
+			data = append(data, buf[:n]...)
+			//spew.Dump(data)
+		}
+		log.Debugf("received payload successfully. payload=%d, received=%d", msgHeader.PayloadSize, received)
+
+		// Verify
+		code := 0
+		//spew.Dump(data)
+		decoder := gob.NewDecoder(bytes.NewReader(data))
+		var m obj.Message
+		err = decoder.Decode(&m)
+		if err != nil {
+			log.Error("failed to decode payload;", err)
+			code = -1
+		} else {
+			if m.Verify() {
+				log.Debug("checksum ok")
+				code = 200
+				success_count++
+			} else {
+				log.Error("checksum error")
+				code = -2
+			}
+		}
+
+		// Response
+		err = encoder.Encode(&obj.Response{Code:code})
+		if err != nil {
+			log.Error("failed to response;", err)
+			continue
+		}
 	}
+	//log.Debug("data: %v", data)
+
+
+
+	//var err error
+	//dataBuffer := make([]byte, 4)
+	//for {
+	//	log.Debug("ready to receive msg")
+	//	msgLen, err := conn.Read(dataBuffer)
+	//	if err != nil {
+	//		if err == io.EOF {
+	//			log.Debugf("disconnected connection #%d", connID)
+	//			return err
+	//		}
+	//		log.Error("failed to received;", err)
+	//		continue
+	//	}
+	//
+	//	// Response
+	//	_, err = conn.Write([]byte{0x01})
+	//	if err != nil {
+	//		if err == io.EOF {
+	//			log.Debugf("disconnected connection #%d", connID)
+	//			return err
+	//		}
+	//		log.Error(err)
+	//	}
+	//	log.Debugf("got_message=%d", msgLen)
+	//}
 
 	return nil
 }
@@ -159,7 +234,6 @@ func waitForSignals() {
 	}
 }
 
-
 func Deserialize(b []byte) (*obj.Message, error) {
 	var m obj.Message
 
@@ -171,4 +245,3 @@ func Deserialize(b []byte) (*obj.Message, error) {
 
 	return &m, nil
 }
-

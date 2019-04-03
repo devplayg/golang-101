@@ -7,6 +7,14 @@ import (
 	"github.com/devplayg/golang-101/tcp-byte-stream-104/utils"
 )
 
+type Response struct{
+	Code int
+}
+
+type MessageHeader struct {
+	PayloadSize uint32 // 4,294,967,295
+}
+
 // Message
 type Message struct {
 	Seq       int64
