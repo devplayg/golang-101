@@ -70,7 +70,7 @@ func main() {
 		return
 	}
 	defer listener.Close()
-	log.Debug("started server")
+	log.Info("started server")
 
 	// Start server
 	go run()
