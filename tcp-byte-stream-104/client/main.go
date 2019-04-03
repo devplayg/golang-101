@@ -22,16 +22,13 @@ const (
 )
 
 var (
-	// Command flags
+	// Flags
 	cmdFlags = flag.NewFlagSet("", flag.ExitOnError)
 
-	// Etc
+	// Channels
 	senderQuit   = make(chan bool)
 	receiverQuit = make(chan bool)
-	Debug        = false
-
-	// Signal
-	response = make(chan obj.Response)
+	response     = make(chan obj.Response)
 )
 
 func init() {
@@ -57,7 +54,6 @@ func main() {
 	if *debug {
 		log.SetLevel(log.DebugLevel)
 		log.Debug("started debugging")
-		Debug = *debug
 	}
 
 	conn, err := net.Dial("tcp", *host+":"+strconv.Itoa(*port))
@@ -153,7 +149,7 @@ func startSender(conn net.Conn) error {
 		log.Debugf("sent data successfully; code=%d", result.Code)
 
 		//time.Sleep(5 * time.Second)
-		time.Sleep(50 * time.Millisecond)
+		//time.Sleep(50 * time.Millisecond)
 	}
 
 	return nil

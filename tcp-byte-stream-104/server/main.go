@@ -31,7 +31,6 @@ var (
 
 	// Etc
 	quit  = make(chan bool)
-	Debug = false
 )
 
 func init() {
@@ -60,7 +59,6 @@ func main() {
 	if *debug {
 		log.SetLevel(log.DebugLevel)
 		log.Debug("started debugging")
-		Debug = *debug
 	}
 
 	var err error
@@ -137,7 +135,7 @@ func handleConnection(conn net.Conn, connID int64) error {
 				return nil
 			}
 			log.Error("failed to receive header and decode;", err)
-			continue
+			return err
 		}
 		log.Debugf("received message header. payload is %d bytes", msgHeader.PayloadSize)
 
