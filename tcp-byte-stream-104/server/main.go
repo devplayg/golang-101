@@ -6,7 +6,6 @@ import (
 	"flag"
 	"github.com/devplayg/golang-101/tcp-byte-stream-104/obj"
 	log "github.com/sirupsen/logrus"
-	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -122,11 +121,12 @@ func handleConnection(conn net.Conn, connID int64) error {
 		log.Debug("ready to receive message header")
 		err = decoder.Decode(&msgHeader)
 		if err != nil {
-			if err == io.EOF {
-				log.Debug("disconnected connection %d;", connID, conn.RemoteAddr().String())
-				return nil
-			}
-			log.Error("failed to receive header and decode;", err)
+			//if err == io.EOF {
+			//	log.Debug("disconnected connection %d;", connID, conn.RemoteAddr().String())
+			//	return nil
+			//}
+			//log.Error("failed to receive header and decode;", err)
+			log.Debug("disconnected connection %d;", connID, conn.RemoteAddr().String())
 			return err
 		}
 		log.Debugf("received message header. payload is %d bytes", msgHeader.PayloadSize)

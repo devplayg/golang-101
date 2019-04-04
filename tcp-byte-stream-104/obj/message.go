@@ -3,11 +3,11 @@ package obj
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/gob"
-	"github.com/devplayg/golang-101/tcp-byte-stream-104/utils"
 )
 
-type Response struct{
+type Response struct {
 	Code int
 }
 
@@ -25,8 +25,8 @@ type Message struct {
 
 // Merge
 func (m *Message) Merge() []byte {
-	seq, _ := utils.Int64ToByte(m.Seq)
-	timestamp, _ := utils.Int64ToByte(m.Timestamp)
+	seq, _ := Int64ToByte(m.Seq)
+	timestamp, _ := Int64ToByte(m.Timestamp)
 	return bytes.Join(
 		[][]byte{seq, timestamp, m.Data},
 		[]byte(""),
@@ -52,4 +52,14 @@ func (m *Message) Verify() bool {
 		return true
 	}
 	return false
+}
+
+func Int64ToByte(num int64) ([]byte, error) {
+	buff := new(bytes.Buffer)
+	err := binary.Write(buff, binary.BigEndian, num)
+	if err != nil {
+		return nil, err
+	}
+
+	return buff.Bytes(), nil
 }

@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/gob"
-	marand "math/rand"
 	"flag"
 	"github.com/devplayg/golang-101/tcp-byte-stream-104/obj"
 	log "github.com/sirupsen/logrus"
@@ -29,7 +28,7 @@ var (
 	// Channels
 	senderQuitChan   = make(chan bool)
 	receiverQuitChan = make(chan bool)
-	responseChan = make(chan obj.Response)
+	responseChan     = make(chan obj.Response)
 )
 
 func init() {
@@ -99,7 +98,7 @@ func startSender(conn net.Conn) error {
 		msg := obj.Message{
 			Seq:       seq,
 			Timestamp: time.Now().Unix(),
-			Data:      getData(PayloadSize+marand.Intn(1000)),
+			Data:      getData(PayloadSize),
 		}
 		//log.Debug(marand.Intn(1000))
 		merged := msg.Merge()
