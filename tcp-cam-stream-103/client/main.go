@@ -5,9 +5,10 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/gob"
+	"errors"
 	"flag"
-	"github.com/devplayg/golang-101/tcp-byte-stream-104/obj"
 	log "github.com/sirupsen/logrus"
+	"gocv.io/x/gocv"
 	"io"
 	"net"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+	"github.com/devplayg/golang-101/tcp-cam-stream-103/obj"
 )
 
 const (
@@ -29,7 +31,7 @@ var (
 	senderQuitChan   = make(chan bool)
 	receiverQuitChan = make(chan bool)
 	responseChan     = make(chan obj.Response)
-	exitChan        = make(chan os.Signal)
+	exitChan         = make(chan os.Signal)
 )
 
 func init() {
@@ -47,6 +49,7 @@ func main() {
 	var (
 		host  = cmdFlags.String("host", "127.0.0.1", "Host")
 		port  = cmdFlags.Int("port", 8000, "Port")
+		camID = cmdFlags.Int("cam", 0, "Camera ID")
 		debug = cmdFlags.Bool("debug", false, "debug")
 	)
 
@@ -68,39 +71,54 @@ func main() {
 		log.Error("failed to connect to server;", err)
 		return
 	}
-	defer func() {
-		// Close connection
-		if conn != nil {
-			conn.Close()
-		}
-		log.Info("closed connection")
-	}()
+	defer conn.Close()
 
-	// Start receiver
+	// Open camera
+	webCam, err := gocv.OpenVideoCapture(*camID)
+	if err != nil {
+		log.Errorf("failed to open camera #%d", camID)
+		return
+	}
+	defer webCam.Close()
+
+	// Start signal receiver
 	go startReceiver(conn)
 
-	// Start sender
-	go startSender(conn)
+	// Start stream sender
+	go startSender(conn, webCam)
 
 	// Wait for stop signal
 	waitForSignals()
 }
 
-func startSender(conn net.Conn) error {
+func startSender(conn net.Conn, webCam *gocv.VideoCapture) error {
+	img := gocv.NewMat()
 	defer func() {
 		log.Debug("closing connection")
 		close(senderQuitChan)
 		conn.Close()
+		img.Close()
 		exitChan <- os.Interrupt
 	}()
 	var seq int64 = 1
 	encoder := gob.NewEncoder(conn)
+
 	for {
+		// Capture image
+		if ok := webCam.Read(&img); !ok {
+			msg := "failed to read image from camera"
+			log.Debug(msg)
+			return errors.New(msg)
+		}
+		if img.Empty() {
+			continue
+		}
+
 		// Create message
 		msg := obj.Message{
 			Seq:       seq,
 			Timestamp: time.Now().Unix(),
-			Data:      getData(PayloadSize),
+			Data:      img.ToBytes(),
 		}
 		merged := msg.Merge()
 		hash := sha256.Sum256(merged)
@@ -116,6 +134,9 @@ func startSender(conn net.Conn) error {
 		// Create message header
 		msgHeader := obj.MessageHeader{
 			PayloadSize: uint32(len(data)),
+			Rows: img.Rows(),
+			Cols: img.Cols(),
+			MatType: img.Type(),
 		}
 
 		// Send message header
@@ -155,6 +176,7 @@ func startReceiver(conn net.Conn) error {
 	defer func() {
 		close(receiverQuitChan)
 		log.Debug("sent closing signal to receiver")
+		exitChan <- os.Interrupt
 	}()
 
 	response := obj.Response{}
