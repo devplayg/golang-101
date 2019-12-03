@@ -23,6 +23,9 @@ var port *string
 const (
 	DefaultServerName = "https"
 	DefaultPortNumber = "8080"
+
+	VOICE      = "MAN_READ_CALM" // WOMAN_READ_CALM, MAN_READ_CALM
+	VoiceSpeed = "SS_READ_SPEECH"
 )
 
 func view(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +122,7 @@ func request(w http.ResponseWriter, r *http.Request) {
 			Timeout:   time.Second * 6,
 		}
 
-		data := "<speak><voice>" + body + "</voice></speak>"
+		data := fmt.Sprintf("<speak><voice name=%q speechStyle=%q>%s</voice></speak>", VOICE, VoiceSpeed, body)
 
 		req, _ := http.NewRequest("POST", query, strings.NewReader(data))
 		req.Header.Set("Content-Type", "application/xml")
