@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,32 +16,41 @@ import (
 var resourceDir = "data"
 
 var extMap = map[string]bool{
-	".js":  true,
-	".png": true,
-	".css": true,
+	".js":    true,
+	".png":   true,
+	".css":   true,
+	".eot":   true,
+	".svg":   true, // image/svg+xml
+	".ttf":   true,
+	".woff":  true,
+	".woff2": true, // font/woff2
 }
 
 func main() {
 
-	list := getAssets()
-	if len(list) < 1 {
+	assets := getAssets()
+	if len(assets) < 1 {
 		return
 	}
-	//spew.Dump(list)
 
-	//fmt.Println("")
-	//fmt.Println("")
-	//fmt.Println("")
+	b, m := encodeAssets(assets)
 
-	encodedStr, m := encodeAssets(list)
-	f, err := ioutil.TempFile(".", "result")
+	compressed, err := compressData(b)
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
-	f.WriteString("/*\n")
-	//fmt.Println("Keys---------------------------------")
 
+	path, err := writeData(compressed, m)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(path)
+
+	//encodedStr, m := encodeAssets(list)
+
+	//f.WriteString("/*\n")
+	////fmt.Println("Keys---------------------------------")
+	//
 	keys := make([]string, 0)
 	for key, _ := range m {
 		keys = append(keys, key)
@@ -47,15 +58,54 @@ func main() {
 	sort.Strings(keys)
 
 	for _, k := range keys {
+		fmt.Printf("	%s\n", k)
+		//f.WriteString("\t" + k + "\n")
+	}
+	//f.WriteString("*/\n")
+	//f.WriteString(encodedStr)
+	//
+	//fmt.Printf("output: %s\n", f.Name())
+}
+
+func writeData(b []byte, m map[string][]byte) (string, error) {
+	f, err := ioutil.TempFile(".", "result")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	f.WriteString("/*\n")
+	keys := make([]string, 0)
+	for key, _ := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		//fmt.Printf("	%s\n", k)
 		f.WriteString("\t" + k + "\n")
 	}
 	f.WriteString("*/\n")
-	f.WriteString(encodedStr)
 
-	fmt.Printf("output: %s\n", f.Name())
+	f.WriteString(base64.StdEncoding.EncodeToString(b))
+
+	return f.Name(), nil
 }
 
-func encodeAssets(list []string) (string, map[string][]byte) {
+func compressData(data []byte) ([]byte, error) {
+	var b bytes.Buffer
+	gz := gzip.NewWriter(&b)
+	if _, err := gz.Write(data); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+
+}
+
+func encodeAssets(list []string) ([]byte, map[string][]byte) {
 	m, err := encode(list)
 	if err != nil {
 		panic(err)
@@ -66,7 +116,7 @@ func encodeAssets(list []string) (string, map[string][]byte) {
 		panic(err)
 	}
 
-	return base64.StdEncoding.EncodeToString(b), m
+	return b, m
 
 }
 
