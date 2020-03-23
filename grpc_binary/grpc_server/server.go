@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	pb "github.com/devplayg/hello_grpc/binary"
 	"google.golang.org/grpc"
 	"io/ioutil"
 	"net"
