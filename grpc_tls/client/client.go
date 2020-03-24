@@ -2,66 +2,46 @@ package main
 
 import (
 	"context"
-	pb "github.com/devplayg/golang-101/grpc_binary"
+	"flag"
+	"fmt"
+	"log"
+	"time"
+
+	ecpb "github.com/devplayg/golang-101/grpc_tls"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"io/ioutil"
-	"log"
-	"path/filepath"
-	"time"
+	"google.golang.org/grpc/testdata"
 )
 
-var addr = "127.0.0.1:50051"
+var addr = flag.String("addr", "125.132.191.38:50051", "the address to connect to")
+
+func callUnaryEcho(client ecpb.EchoClient, message string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	resp, err := client.UnaryEcho(ctx, &ecpb.EchoRequest{Message: message})
+	if err != nil {
+		log.Fatalf("client.UnaryEcho(_) = _, %v: ", err)
+	}
+	fmt.Println("UnaryEcho: ", resp.Message)
+}
 
 func main() {
+	flag.Parse()
 
-	opts := grpc.WithInsecure()
-
-	creds, err := credentials.NewClientTLSFromFile("../../cert.pem", "")
+	// Create tls based credential.
+	creds, err := credentials.NewClientTLSFromFile(testdata.Path("ca.pem"), "x.test.youtube.com")
 	if err != nil {
 		log.Fatalf("failed to load credentials: %v", err)
 	}
 
-	opts = grpc.WithTransportCredentials(creds)
-
-	// conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(creds), grpc.WithInsecure())
-	//conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(creds), grpc.WithInsecure())
-	//
-	//if err != nil {
-	//	log.Fatalf("did not connect: %v", err)
-	//}
-	//defer conn.Close()
-
-	conn, err := grpc.Dial(addr, opts)
+	// Set up a connection to the server.
+	conn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(creds))
 	if err != nil {
-		panic(err)
+		log.Fatalf("did not connect: %v", err)
 	}
-	//defer conn.Close()
-	//
-	//client := pb.NewGreeterClient(conn)
-	client := pb.NewGreeterClient(conn)
+	defer conn.Close()
 
-	images := []string{"gopher001.png"}
-	for _, img := range images {
-		if err := send(client, img); err != nil {
-			log.Println(err.Error())
-		}
-	}
-}
-
-func send(client pb.GreeterClient, path string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	res, err := client.SayHello(ctx, &pb.DataRequest{Name: filepath.Base(path), Data: data})
-	if err != nil {
-		return err
-	}
-	log.Println(res.Message)
-	return nil
+	// Make a echo client and send an RPC.
+	rgc := ecpb.NewEchoClient(conn)
+	callUnaryEcho(rgc, "hello world")
 }
