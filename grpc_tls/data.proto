@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package grpc_binary;
+package grpc_tls;
 
 service Greeter {
     rpc SayHello (DataRequest) returns (DataResponse) {}

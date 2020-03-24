@@ -1,5 +1,4 @@
-
-## Hello gRPC
+# Say hello with gRPC
 
 
 Get `protoc` from github.com

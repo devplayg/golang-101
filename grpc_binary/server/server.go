@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	pb "github.com/devplayg/hello_grpc/hello"
+	pb "github.com/devplayg/golang-101/grpc_binary"
 	"google.golang.org/grpc"
-	"log"
+	"io/ioutil"
 	"net"
 )
 
@@ -12,10 +12,14 @@ type server struct {
 	pb.UnimplementedGreeterServer
 }
 
-func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloResponse, error) {
-	log.Printf("Received: %v", in.GetName())
-	return &pb.HelloResponse{
-		Message: "Hello " + in.GetName(),
+func (s *server) SayHello(ctx context.Context, in *pb.DataRequest) (*pb.DataResponse, error) {
+	if err := ioutil.WriteFile(in.Name, in.Data, 0644); err != nil {
+		return &pb.DataResponse{
+			Message: err.Error(),
+		}, err
+	}
+	return &pb.DataResponse{
+		Message: "saved " + in.GetName(),
 	}, nil
 }
 
