@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package grpc_data.vas;
+
+
+service EventReceiver {
+    rpc Send (EventRequest) returns (EventResponse) {}
+    rpc SendMany (EventsRequest) returns (EventResponse) {}
+}
+
+message EventRequest {
+    string date = 1;
+    string camera = 2;
+    int32 eventType = 3;
+    repeated bytes images = 4;
+
+    bool gloves = 11;
+    bool helmet = 12;
+    bool shoes = 13;
+}
+
+message EventsRequest {
+    repeated EventRequest events = 1;
+}
+
+message EventResponse {
+    string message = 1;
+    int32 count = 2;
+}
