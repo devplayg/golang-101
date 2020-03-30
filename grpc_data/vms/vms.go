@@ -16,6 +16,7 @@ import (
 )
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz")
+var addr = ":8808"
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
@@ -31,7 +32,7 @@ func (s *server) Send(ctx context.Context, in *pb.EventRequest) (*pb.EventRespon
 	t, _ := time.Parse(time.RFC3339, in.Date)
 	for i, img := range in.Images {
 		path := filepath.Join("storage", t.Format("20060102150405")+"_"+getRandString(5)+"_"+strconv.Itoa(i)+".data")
-		if err := ioutil.WriteFile(path, img, 0644); err != nil {
+		if err := ioutil.WriteFile(path, img, 0755); err != nil {
 			log.Printf(err.Error())
 			return &pb.EventResponse{
 				Message: "failed " + in.Date,
@@ -52,7 +53,7 @@ func getRandString(n int) string {
 }
 
 func main() {
-	ln, err := net.Listen("tcp", ":8808")
+	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		panic(err)
 	}

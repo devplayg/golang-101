@@ -14,17 +14,16 @@ import (
 )
 
 var (
-	addr   = "127.0.0.1:8808"
-	images = make([]string, 0)
+	addr, imgDir string
+	images       = make([]string, 0)
 )
 
-var imgDir string
-
 func init() {
-	imgDir = os.Args[1]
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		os.Exit(0)
 	}
+	addr = os.Args[1]
+	imgDir = os.Args[2]
 }
 
 func main() {
