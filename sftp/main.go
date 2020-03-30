@@ -57,9 +57,7 @@ func main() {
 	defer c.Close()
 
 	src := "D:/utils/ubuntu-18.04.3-live-server-amd64.iso"
-
 	w, err := c.OpenFile(filepath.Base(src), os.O_CREATE|os.O_RDWR|os.O_TRUNC)
-
 	//w, err := c.OpenFile("/dev/null", syscall.O_WRONLY)
 	if err != nil {
 		log.Fatal(err)
@@ -75,7 +73,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	size := fi.Size()
 
 	log.Printf("writing %v bytes", size)

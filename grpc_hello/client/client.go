@@ -24,5 +24,4 @@ func main() {
 		panic(err)
 	}
 	log.Printf("Reply: " + res.Message)
-
 }

@@ -8,30 +8,22 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
 var (
 	addr   = "127.0.0.1:8808"
-	imgDir = filepath.Join("../images")
 	images = make([]string, 0)
 )
 
-func init() {
-	// seed
-	rand.Seed(time.Now().UnixNano())
+var imgDir string
 
-	// read data
-	files, err := ioutil.ReadDir(imgDir)
-	if err != nil {
-		panic(err)
-	}
-	for _, f := range files {
-		if strings.HasSuffix(f.Name(), ".jpg") {
-			images = append(images, filepath.Join(imgDir, f.Name()))
-		}
+func init() {
+	imgDir = os.Args[1]
+	if len(os.Args) < 2 {
+		os.Exit(0)
 	}
 }
 
@@ -43,19 +35,38 @@ func main() {
 	defer conn.Close()
 
 	client := pb.NewEventReceiverClient(conn)
-	for {
-		if err := sendMany(client); err != nil {
-			log.Println(err.Error())
+	files, err := readDir(imgDir)
+	for _, path := range files {
+		if err := send(client, path); err != nil {
+			fmt.Println("[error] " + err.Error())
+			continue
 		}
-		time.Sleep(5 * time.Second)
 	}
 }
 
-func send(client pb.EventReceiverClient) error {
+func readDir(dir string) ([]string, error) {
+	println(dir)
+	files := make([]string, 0)
+	err := filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {
+		if f.IsDir() {
+			return nil
+		}
+
+		if !f.Mode().IsRegular() {
+			return nil
+		}
+		files = append(files, path)
+		return nil
+	})
+
+	return files, err
+}
+
+func send(client pb.EventReceiverClient, path string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	event := generateEvent()
+	event := generateEvent(path)
 	res, err := client.Send(ctx, event)
 	if err != nil {
 		return err
@@ -65,43 +76,43 @@ func send(client pb.EventReceiverClient) error {
 	return nil
 }
 
-func sendMany(client pb.EventReceiverClient) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+//
+//func sendMany(client pb.EventReceiverClient) error {
+//	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+//	defer cancel()
+//
+//	count := rand.Intn(3) + 1
+//	events := make([]*pb.EventRequest, 0)
+//	for i := 0; i < count; i++ {
+//		events = append(events, generateEvent())
+//	}
+//	eventReq := &pb.EventsRequest{
+//		Events: events,
+//	}
+//	res, err := client.SendMany(ctx, eventReq)
+//	if err != nil {
+//		return err
+//	}
+//	log.Printf("msg=%s, sent=%d, success=%d\n", res.Message, count, res.Count)
+//	return nil
+//}
 
-	count := rand.Intn(3) + 1
-	events := make([]*pb.EventRequest, 0)
-	for i := 0; i < count; i++ {
-		events = append(events, generateEvent())
-	}
-	eventReq := &pb.EventsRequest{
-		Events: events,
-	}
-	res, err := client.SendMany(ctx, eventReq)
-	if err != nil {
-		return err
-	}
-	log.Printf("msg=%s, sent=%d, success=%d\n", res.Message, count, res.Count)
-	return nil
-}
+func generateEvent(path string) *pb.EventRequest {
+	img, _ := ioutil.ReadFile(path)
 
-func generateEvent() *pb.EventRequest {
-	img1, _ := ioutil.ReadFile(images[rand.Intn(len(images))])
-	img2, _ := ioutil.ReadFile(images[rand.Intn(len(images))])
-
-	n := rand.Intn(2)
-	var b bool
-	if n == 1 {
-		b = true
-	}
+	//n := rand.Intn(2)
+	//var b bool
+	//if n == 1 {
+	//	b = true
+	//}
 
 	return &pb.EventRequest{
 		Date:      time.Now().Format(time.RFC3339),
 		Camera:    fmt.Sprintf("DS0000%d", rand.Intn(9)+1),
 		EventType: int32(rand.Intn(10)),
-		Images:    [][]byte{img1, img2},
-		Gloves:    b,
-		Helmet:    !b,
-		Shoes:     b,
+		Images:    [][]byte{img},
+		Gloves:    false,
+		Helmet:    false,
+		Shoes:     false,
 	}
 }
