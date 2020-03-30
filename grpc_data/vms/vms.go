@@ -20,7 +20,7 @@ var addr = ":8808"
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
-	os.Mkdir("storage", 0644)
+	os.Mkdir("storage", 0755)
 
 }
 
@@ -32,7 +32,7 @@ func (s *server) Send(ctx context.Context, in *pb.EventRequest) (*pb.EventRespon
 	t, _ := time.Parse(time.RFC3339, in.Date)
 	for i, img := range in.Images {
 		path := filepath.Join("storage", t.Format("20060102150405")+"_"+getRandString(5)+"_"+strconv.Itoa(i)+".data")
-		if err := ioutil.WriteFile(path, img, 0755); err != nil {
+		if err := ioutil.WriteFile(path, img, 0644); err != nil {
 			log.Printf(err.Error())
 			return &pb.EventResponse{
 				Message: "failed " + in.Date,
