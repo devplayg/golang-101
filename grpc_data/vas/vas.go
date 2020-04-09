@@ -27,19 +27,24 @@ func init() {
 }
 
 func main() {
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
 
 	client := pb.NewEventReceiverClient(conn)
-	files, err := readDir(imgDir)
-	for _, path := range files {
-		if err := send(client, path); err != nil {
-			fmt.Println("[error] " + err.Error())
-			continue
+	for {
+
+		files, _ := readDir(imgDir)
+		for _, path := range files {
+			if err := send(client, path); err != nil {
+				fmt.Println("[error] " + err.Error())
+				continue
+			}
 		}
+
+		time.Sleep(3 * time.Second)
 	}
 }
 
@@ -62,7 +67,7 @@ func readDir(dir string) ([]string, error) {
 }
 
 func send(client pb.EventReceiverClient, path string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	event := generateEvent(path)

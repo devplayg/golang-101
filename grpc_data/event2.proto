@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package grpc_data.vas;
+
+import "google/protobuf/timestamp.proto";
+
+service EventReceiver {
+    // VAS to VMS receiver
+    rpc Send (FactoryEvents) returns (Response) {
+    }
+
+    // VMS receiver to VMS classifier
+//    rpc Send2 (M) returns (Response) {
+//    }
+
+}
+
+message FactoryEvent {
+    FactoryEventHeader header = 1;
+    FactoryEventBody body = 2;
+}
+
+message FactoryEventBody {
+    repeated File files = 1;
+}
+
+message FactoryEventHeader {
+    int32 version = 1;
+    google.protobuf.Timestamp date = 2;
+    string camera = 3;
+    string object_id = 4;
+    enum Type {
+        // Factory
+        HAND_FOOT_CRUSH = 0;
+        FALLING = 1;
+        PPE_REQUIRED = 2;
+        ABNORMAL_CONDITION = 3;
+        INTRUSION = 4;
+        OBSTACLE = 5;
+        SPARK = 6;
+        FIRE = 7;
+        FUME = 8;
+
+        // Painting
+        PAINTING_DEFECT = 9;
+        PAINTING_COMPLETE = 10;
+
+        // Working
+        WORKING_START = 11;
+        WORKING_END = 12;
+    }
+    Type type = 5;
+}
+
+message FactoryEvents {
+    repeated FactoryEvent events = 1;
+}
+
+message File {
+    uint32 content_type = 1; // image, text or something
+    string time = 2;
+    uint32 category = 3;
+    bytes data = 4;
+}
+
+message Response {
+    string error = 1;
+}
+
+
+message CameraPolicy {
+    string id = 1;
+}
