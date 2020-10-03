@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -21,9 +20,9 @@ func main() {
 
 	// API list
 	apiList := []string{
-		"/api1",
-    "/api2",
-    "/api3",    
+            "/api1",
+            "/api2",
+            "/api3",    
 	}
 	startHttpServer(*port, apiList)
 }
@@ -70,7 +69,8 @@ func startHttpServer(port string, apiList []string) {
 
 // creates HTTP server
 func createHttpServer(port string, apiList []string) *http.Server {
-	r := mux.NewRouter()
+	//r := mux.NewRouter()
+	r := http.NewServeMux()
 	for _, api := range apiList {
 		r.HandleFunc(api, commonHandler)
 		fmt.Printf("[api] %s\n", api)
@@ -81,6 +81,7 @@ func createHttpServer(port string, apiList []string) *http.Server {
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
+	fmt.Printf("server listening on %s\n", srv.Addr)
 	return srv
 
 }
